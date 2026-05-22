@@ -76,7 +76,7 @@ class ForzaTelem:
             latest_data = None
             while True:
                 try:
-                    self.data = sock.recvfrom(self.FORZA_BUF_SIZE)[0]
+                    latest_data = sock.recvfrom(self.FORZA_BUF_SIZE)[0]
                 except BlockingIOError:
                     break
             if latest_data and len(latest_data) >= ForzaTelem.MIN_DATA_SIZE:
