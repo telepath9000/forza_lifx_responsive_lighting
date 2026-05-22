@@ -12,6 +12,7 @@ DEFAULT_MAC_ADDRESS = ""
 DEFAULT_LIFX_IP_ADDRESS = ""
 DEFAULT_FORZA_IP_ADDRESS = ""
 DEFAULT_FORZA_UDP_PORT = 8888
+DEFAULT_BRIGHTNESS_SCALE = 0.5
 
 def bind[A, B](a: A | None, f: Callable[[A], B | None]) -> B | None:
     if a is None:
@@ -37,6 +38,7 @@ class Addresses():
     lifx_ip: str
     forza_ip: str
     forza_port: int
+    brightness_scale: float
 
 @dataclass(frozen=True, slots=True)
 class ForzaHdrIdx:
@@ -60,6 +62,7 @@ class ForzaTelem:
     player_car: ForzaCar
     FORZA_BUF_SIZE = 1024
     MIN_DATA_SIZE = 324
+    FORZA_BRIGHTNESS_RANGE = 65535
 
     def __init__(self, ip: str, port: int):
         self.ip_address = ip
@@ -104,7 +107,7 @@ class LifxNeon:
 class BrakeThrottleColorAdapter:
     @staticmethod
     def calculate_ratio(value: float, value_range: float) -> int:
-        return int((value / value_range) * 65535)
+        return int((value / value_range) * ForzaTelem.FORZA_BRIGHTNESS_RANGE)
 
     @staticmethod
     def throttle_indicator(car_data: ForzaCar) -> LifxLightColor | None:
@@ -136,21 +139,30 @@ class BrakeThrottleColorAdapter:
         total_brightness = a.brightness + b.brightness
         return BrakeThrottleColorAdapter.mix_colors(a, b, 0.5 if total_brightness == 0 else b.brightness / total_brightness)
 
+    @staticmethod
+    def scale_brightness(c: LifxLightColor, scale: float) -> LifxLightColor:
+        return LifxLightColor(
+                hue=c.hue,
+                saturation=c.saturation,
+                brightness=int(c.brightness * scale),
+                kelvin=c.kelvin)
+
 def forza_light(addresses: Addresses):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     forza = ForzaTelem(addresses.forza_ip, addresses.forza_port)
     lifx = LifxNeon(addresses.lifx_ip, addresses.lifx_mac)
     forza.sock_bind(sock)
     forza.last_update = time.time()
-    print("Listening for Forza Telemetry...")
+    print("listening for forza telemetry...")
     while True:
         current_time = time.time()
         if (current_time - forza.last_update) >= LifxNeon.UPDATE_INTERVAL and forza.retrieve(sock):
             throttle_color = bind(forza.player_car, BrakeThrottleColorAdapter.throttle_indicator)
             brake_color = bind(forza.player_car, BrakeThrottleColorAdapter.brake_indicator)
             final_color = bind2(throttle_color, brake_color, BrakeThrottleColorAdapter.blend_pedals)
+            scaled_color = bind(final_color, lambda c: BrakeThrottleColorAdapter.scale_brightness(c, addresses.brightness_scale))
             try:
-                lifx.set_color(final_color)
+                lifx.set_color(scaled_color)
             except Exception as e:
                 print(f"failed with {e}")
             forza.last_update = current_time
@@ -168,7 +180,11 @@ def is_valid_ip(ip):
 
 def prepare_addresses(args: argparse.Namespace) -> Addresses | None:
     if is_valid_ip(args.lifx_ip_address) and is_valid_ip(args.forza_ip_address) and is_valid_mac(args.mac_address):
-        return Addresses(args.mac_address, args.lifx_ip_address, args.forza_ip_address, int(args.port))
+        return Addresses(args.mac_address or DEFAULT_MAC_ADDRESS,
+                         args.lifx_ip_address or DEFAULT_LIFX_IP_ADDRESS,
+                         args.forza_ip_address or DEFAULT_FORZA_IP_ADDRESS,
+                         int(args.port) or DEFAULT_FORZA_UDP_PORT,
+                         args.brightness_scale or DEFAULT_BRIGHTNESS_SCALE)
     return None
 
 def main():
@@ -179,6 +195,7 @@ def main():
     parser.add_argument('-f', '--forza_ip_address')
     parser.add_argument('-m', '--mac_address')
     parser.add_argument('-p', '--port')
+    parser.add_argument('-b', '--brightness_scale')
     args = parser.parse_args()
     packaged_addresses = prepare_addresses(args)
     if packaged_addresses is None:
