@@ -168,12 +168,12 @@ def is_valid_ip(ip):
 
 def prepare_addresses(args: argparse.Namespace) -> Addresses | None:
     if is_valid_ip(args.lifx_ip_address) and is_valid_ip(args.forza_ip_address) and is_valid_mac(args.mac_address):
-        return Addresses(args.mac_address, args.lifx_ip_address, args.forza_ip_address, args.forza_port)
+        return Addresses(args.mac_address, args.lifx_ip_address, args.forza_ip_address, int(args.port))
     return None
 
 def main():
     parser = argparse.ArgumentParser(
-            prog='forza_lifx',
+            prog='forza_light',
             description='lighting effects for Forza Horizon 6 and the LIFX light strips; provide MAC address and ip as options or hardcode')
     parser.add_argument('-l', '--lifx_ip_address')
     parser.add_argument('-f', '--forza_ip_address')
