@@ -180,22 +180,22 @@ def is_valid_ip(ip):
 
 def prepare_addresses(args: argparse.Namespace) -> Addresses | None:
     if is_valid_ip(args.lifx_ip_address) and is_valid_ip(args.forza_ip_address) and is_valid_mac(args.mac_address):
-        return Addresses(args.mac_address or DEFAULT_MAC_ADDRESS,
-                         args.lifx_ip_address or DEFAULT_LIFX_IP_ADDRESS,
-                         args.forza_ip_address or DEFAULT_FORZA_IP_ADDRESS,
-                         int(args.port) or DEFAULT_FORZA_UDP_PORT,
-                         args.brightness_scale or DEFAULT_BRIGHTNESS_SCALE)
+        return Addresses(args.mac_address,
+                         args.lifx_ip_address,
+                         args.forza_ip_address,
+                         int(args.port),
+                         args.brightness_scale)
     return None
 
 def main():
     parser = argparse.ArgumentParser(
             prog='forza_light',
             description='lighting effects for Forza Horizon 6 and the LIFX light strips; provide MAC address and ip as options or hardcode')
-    parser.add_argument('-l', '--lifx_ip_address')
-    parser.add_argument('-f', '--forza_ip_address')
-    parser.add_argument('-m', '--mac_address')
-    parser.add_argument('-p', '--port')
-    parser.add_argument('-b', '--brightness_scale')
+    parser.add_argument('-l', '--lifx_ip_address', default=DEFAULT_LIFX_IP_ADDRESS)
+    parser.add_argument('-f', '--forza_ip_address', default=DEFAULT_FORZA_IP_ADDRESS)
+    parser.add_argument('-m', '--mac_address', default=DEFAULT_MAC_ADDRESS)
+    parser.add_argument('-p', '--port', default=DEFAULT_FORZA_UDP_PORT)
+    parser.add_argument('-b', '--brightness_scale', default=DEFAULT_BRIGHTNESS_SCALE, help='Max brightness scale (0.0 to 1.0)')
     args = parser.parse_args()
     packaged_addresses = prepare_addresses(args)
     if packaged_addresses is None:
